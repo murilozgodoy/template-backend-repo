@@ -13,6 +13,13 @@ Todo projeto novo nasce daqui, pelo botão **Use this template** do Github, e j�
 
 O passo a passo completo, com o porquê de cada decisão, está na **Cartilha DevWeb** do Núcleo de Inovação.
 
+## Antes de iniciar
+
+### Dê uma estrela e utilize o botão "Use this template" do repositório
+
+1. **Dê uma estrela** neste repositório (Star).
+2. **Use this template** do repositório para sua conta no GitHub. Isso criará esse repositório na sua conta.
+
 ## Começando um projeto
 
 Requisitos: **Python 3.12 ou 3.13**, Git e Docker Desktop rodando. O template foi validado nas duas versões; a imagem de produção e o CI usam 3.13.
