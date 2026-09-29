@@ -15,10 +15,8 @@ O passo a passo completo, com o porquê de cada decisão, está na **Cartilha De
 
 ## Antes de iniciar
 
-### Dê uma estrela e utilize o botão "Use this template" do repositório
-
 1. **Dê uma estrela** neste repositório (Star).
-2. **Use this template** do repositório para sua conta no GitHub. Isso criará esse repositório na sua conta.
+2. Para criar um projeto novo, use o botão **Use this template → Create a new repository**. **Não clone nem faça fork** — o template precisa ser copiado para o histórico do projeto ficar independente.
 
 ## Começando um projeto
 
