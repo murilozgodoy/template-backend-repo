@@ -1,7 +1,7 @@
 # Template Backend — FastAPI + PostgreSQL
 
 Repositório-base de back-end dos projetos de DevWeb da Insper Júnior.
-Todo projeto novo nasce daqui, pelo botão **Use this template** do GitHub, e já vem com:
+Todo projeto novo nasce daqui, pelo botão **Use this template** do Github, e já vem com:
 
 - arquitetura em camadas (use cases, repositories, models, entities)
 - autenticação de usuários com JWT (registro, login, sessão, recuperação de senha)
