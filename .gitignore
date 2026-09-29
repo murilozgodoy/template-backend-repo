@@ -1,0 +1,27 @@
+# Ambiente
+.env
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Testes e cobertura
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Ferramentas
+.ruff_cache/
+
+# Chaves e segredos - NUNCA commitar
+*.pem
+*.key
+
+# Editores e SO
+.idea/
+.vscode/
+.DS_Store

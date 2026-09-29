@@ -1,0 +1,116 @@
+name: Deploy
+
+# Roda a cada merge na main: testa, publica a imagem e sobe na EC2.
+on:
+  push:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    # Nao roda no proprio repositorio-template, nem num projeto novo
+    # antes de as variaveis de deploy serem cadastradas (Etapa 9 da cartilha).
+    if: ${{ !github.event.repository.is_template && vars.DOCKERHUB_USERNAME != '' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Testes
+        run: pytest
+
+      # Nome da imagem = <usuario-dockerhub>/<nome-do-repositorio>, em minusculas.
+      # Nenhum projeto precisa editar este arquivo.
+      - name: Definir nome da imagem
+        run: |
+          IMAGE="${{ vars.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}"
+          echo "IMAGE=$(echo "$IMAGE" | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
+
+      - name: Login no Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Configurar Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build e push da imagem
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ env.IMAGE }}:${{ github.sha }}
+
+      - name: Deploy na EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          script: |
+            set -e
+
+            # 1. Baixa a versao nova enquanto a antiga continua no ar.
+            docker pull ${{ env.IMAGE }}:${{ github.sha }}
+
+            # 2. Aplica as migracoes num container temporario.
+            #    Se falhar, o deploy para aqui e a versao antiga segue atendendo.
+            docker run --rm \
+              --network rede \
+              -e DB_HOST=${{ vars.DB_HOST }} \
+              -e DB_PORT=${{ vars.DB_PORT }} \
+              -e DB_NAME=${{ vars.DB_NAME }} \
+              -e DB_USER=${{ secrets.DB_USER }} \
+              -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
+              ${{ env.IMAGE }}:${{ github.sha }} \
+              alembic upgrade head
+
+            # 3. Troca a versao no ar.
+            docker stop app || true
+            docker rm --force app || true
+            docker run -d \
+              --name app \
+              --network rede \
+              -p 8000:8000 \
+              --restart unless-stopped \
+              -e ENVIRONMENT=prod \
+              -e CLIENT_URL=${{ vars.CLIENT_URL }} \
+              -e DB_HOST=${{ vars.DB_HOST }} \
+              -e DB_PORT=${{ vars.DB_PORT }} \
+              -e DB_NAME=${{ vars.DB_NAME }} \
+              -e DB_USER=${{ secrets.DB_USER }} \
+              -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
+              -e USER_JWT_SECRET=${{ secrets.USER_JWT_SECRET }} \
+              -e HMAC_SECRET_KEY=${{ secrets.HMAC_SECRET_KEY }} \
+              -e SENDGRID_API_KEY=${{ secrets.SENDGRID_API_KEY }} \
+              -e SENDGRID_FROM_EMAIL=${{ vars.SENDGRID_FROM_EMAIL }} \
+              ${{ env.IMAGE }}:${{ github.sha }}
+
+            # 4. Confirma que a API respondeu. Configuracao incompleta faz a API
+            #    recusar a inicializacao: o deploy fica vermelho e mostra o log.
+            for tentativa in $(seq 1 15); do
+              if curl -fsS http://localhost:8000/ > /dev/null; then
+                echo "API no ar"
+                break
+              fi
+              if [ "$tentativa" = "15" ]; then
+                echo "A API nao respondeu. Ultimas linhas do log:"
+                docker logs --tail 50 app
+                exit 1
+              fi
+              sleep 2
+            done
+
+            docker image prune -af --filter "until=24h"

@@ -1,0 +1,70 @@
+name: CI
+
+# Roda a cada Pull Request para a main. A regra de protecao da branch
+# exige este workflow verde antes do merge.
+on:
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+
+    # Banco usado so para validar as migracoes do Alembic.
+    # Os testes de integracao sobem o proprio banco via Testcontainers.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: appdb
+          POSTGRES_USER: usuario
+          POSTGRES_PASSWORD: senha
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Lint e formatacao
+        run: |
+          ruff check .
+          ruff format --check .
+
+      - name: Migracoes aplicam e batem com os modelos
+        run: |
+          alembic upgrade head
+          alembic check
+
+      - name: Testes e cobertura geral (minimo 80%)
+        run: pytest
+
+      - name: Cobertura dos use cases (100%)
+        run: coverage report --include="src/use_cases/**/*_use_case.py" --fail-under=100
+
+      - name: Resumo de cobertura
+        if: always()
+        run: coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Relatorio HTML
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobertura
+          path: htmlcov

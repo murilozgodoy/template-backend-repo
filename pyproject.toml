@@ -1,0 +1,30 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "--cov=src --cov-report=term-missing --cov-report=xml --cov-report=html"
+
+[tool.coverage.run]
+branch = true
+source = ["src"]
+
+[tool.coverage.report]
+fail_under = 80
+# conta como 0% os arquivos nunca importados em pastas sem __init__.py
+# (caso de use_cases/): um use case sem nenhum teste nao pode sumir do relatorio
+include_namespace_packages = true
+show_missing = true
+exclude_also = ["if __name__ == .__main__.:"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]  # o ruff format cuida do tamanho das linhas
+
+[tool.ruff.lint.flake8-bugbear]
+# Depends/Query/Body em parametros padrao sao o padrao do FastAPI, nao um bug
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Body"]
